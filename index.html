@@ -135,6 +135,19 @@ nav a.nl:hover{color:var(--fg);text-decoration:none}
 .demo-shell{display:grid;grid-template-columns:352px 1fr;gap:26px;margin-top:40px;align-items:start}
 @media(max-width:980px){.demo-shell{grid-template-columns:1fr}}
 
+.wallet{display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px;margin-bottom:12px;flex-wrap:wrap}
+.wallet .wmeta{display:flex;align-items:center;gap:10px;margin-left:auto;font-family:var(--mono);
+  font-size:11px;color:var(--fg3);flex-wrap:wrap}
+.wallet .wnet{padding:3px 8px;border:1px solid var(--line2);border-radius:100px}
+.wallet .waddr{color:var(--fg2)}
+.wallet .wbal{color:var(--ok)}
+.wallet.on .waddr{color:var(--a)}
+.railnote{font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--fg3);
+  border-left:3px solid var(--line2);padding:8px 12px;margin-bottom:16px;display:none}
+.railnote.show{display:block}
+.railnote.warn{border-left-color:var(--bad);color:var(--fg2)}
+.railnote.ok{border-left-color:var(--ok);color:var(--fg2)}
 .personas{display:flex;gap:6px;background:var(--bg2);border:1px solid var(--line);
   border-radius:100px;padding:5px;margin-bottom:16px}
 .persona{flex:1;padding:9px 6px;border-radius:100px;font-size:12.5px;font-weight:600;text-align:center;
@@ -464,8 +477,10 @@ footer{padding:56px 0;border-top:1px solid var(--line);color:var(--fg3);font-siz
   <div class="eyebrow">03 — Demo interactiva</div>
   <h2>Recorré los tres flujos.</h2>
   <p class="lead" style="margin-top:20px">Compra → disputa → fallo → reembolso en pesos.
-     Todo corre en esta página: <b>sin backend y sin contratos desplegados</b>. La consola de la derecha
-     muestra qué llamada real del SDK correspondería a cada paso y cuál está simulada.</p>
+     Conectá una wallet en <b>Base mainnet</b> y la liquidación en fiat se ejecuta de verdad sobre el
+     <b>rail de P2P.me</b> (approve + orden PAY + QR + destino cifrado). El escrow y el tribunal son la
+     capa propia de p2p.law: aún sin contrato desplegado, van simulados y etiquetados. La consola de la
+     derecha marca cada llamada real y cada paso simulado.</p>
 
   <div class="demo-shell">
     <!-- LEFT: phone -->
@@ -475,6 +490,16 @@ footer{padding:56px 0;border-top:1px solid var(--line);color:var(--fg3);font-siz
         <button class="persona" role="tab" aria-selected="false" data-p="juror">⚖️ Jurado</button>
         <button class="persona" role="tab" aria-selected="false" data-p="seller">🏪 Vendedor</button>
       </div>
+
+      <div class="wallet" id="walletbar">
+        <button class="wbtn" id="btnConnect" style="width:auto;padding:10px 16px">Conectar wallet</button>
+        <div class="wmeta" id="wmeta">
+          <span class="wnet">Base mainnet</span>
+          <span class="waddr" id="waddr">no conectada</span>
+          <span class="wbal" id="wbal"></span>
+        </div>
+      </div>
+      <div class="railnote" id="railnote"></div>
 
       <div class="phone"><div class="screen">
         <div class="sbar"><span id="sbTitle">p2p.law</span><span>◗◗◗ ▮</span></div>
@@ -669,6 +694,7 @@ footer{padding:56px 0;border-top:1px solid var(--line);color:var(--fg3);font-siz
   </p>
 </div></footer>
 
+<script type="module" src="p2p-rail.js"></script>
 <script>
 /* ═════════════ datos ═════════════ */
 /* medido contra el subgraph público de P2P.me el 2026-08-29 · reproducible */
@@ -711,6 +737,7 @@ const S = {
   persona:'buyer', view:'catalogo', prod:null, motivo:0,
   ev:{foto:false,chat:false,trk:false},
   caso:null, votos:0, fallo:null, t:null,
+  qrData:'', orderId:null,
 };
 
 /* ═════════════ consola ═════════════ */
@@ -910,6 +937,8 @@ V.qr = () => ({
       y se lo entrega cifrado al merchant.</div>
     <img class="qr" alt="QR de MercadoPago simulado" src="data:image/svg+xml;utf8,${encodeURIComponent(qrSVG())}">
     <div class="mpbar">💳 MercadoPago · lucia.mp</div>
+    ${railActive() ? `<label class="fl" style="margin-top:14px">Pegá el contenido de tu QR de cobro (real)</label>
+      <textarea id="qrInput" rows="2" placeholder="00020126...">${S.qrData||''}</textarea>` : ''}
     <div class="kv" style="margin-top:14px"><span class="k">Vas a recibir</span>
       <span class="v big">$${S.prod.ars.toLocaleString('es-AR')} ARS</span></div>
     <div class="kv"><span class="k">Salen del escrow</span><span class="v">${S.prod.usdc.toFixed(2)} USDC</span></div>
@@ -1053,6 +1082,7 @@ function seq(pasos, done){
 }
 
 function pagar(){
+  if(railActive()) return pagarRealFlow();
   go('pagando');
   seq([
     [700, 'Aprobando USDC…', () => sdk('orders.approveUsdc.execute({ amount: ' +
@@ -1126,6 +1156,7 @@ function cerrarCaso(){
 }
 
 function cobrar(){
+  if(railActive()) return cobrarRealFlow();
   go('cobrando');
   seq([
     [700, 'Colocando la orden PAY…', () => {
@@ -1183,7 +1214,7 @@ function wire(){
       case 'enviar':    enviarDisputa(); break;
       case 'correr':    correrVotacion(); go('esperando'); break;
       case 'cobrar':    go('qr'); break;
-      case 'escanear':  cobrar(); break;
+      case 'escanear':  { const q=$('#qrInput'); if(q) S.qrData=q.value.trim(); cobrar(); break; }
       case 'votar-buyer':
         own('Tribunal.commit({ casoId: 4417, hash: keccak(voto ‖ salt) })');
         ok('→ voto comprometido · revelás en la fase de reveal');
@@ -1227,6 +1258,99 @@ function reset(){
   info('demo reiniciada — todo corre en el cliente, no sale un request');
   render();
 }
+
+/* ═════════════ puente con el rail REAL de P2P.me ═════════════ */
+function rail(){ return window.P2PRail; }
+function railActive(){ return !!(rail() && rail().getAccount() && rail().isRailConfigured()); }
+function setMsg(t){ const el = $('#pmsg'); if(el) el.textContent = t; }
+function setRailNote(cls, msg){
+  const el = $('#railnote'); if(!el) return;
+  el.className = 'railnote show' + (cls ? (' ' + cls) : '');
+  el.textContent = msg;
+}
+
+/* approve REAL de USDC + escrow simulado (Garantia.sol no está desplegado) */
+async function pagarRealFlow(){
+  go('pagando');
+  try{
+    setMsg('Aprobando USDC en el rail de P2P.me…');
+    await rail().approveUsdc(S.prod.usdc);
+    setMsg('Registrando el escrow…');
+    own('Garantia.abrir(...) — contrato de p2p.law aún sin desplegar; escrow simulado');
+    info('el approve de USDC es una tx real; el bloqueo en escrow es la capa conceptual de p2p.law');
+    ok('→ escrow simulado ABIERTO · vence en 7 d');
+    go('garantia');
+  }catch(e){ log('err', '→ ' + e.message); go('checkout'); }
+}
+
+/* liquidación REAL sobre el rail: orden PAY + QR + destino cifrado */
+async function cobrarRealFlow(){
+  go('cobrando');
+  try{
+    const qr = (S.qrData || '').trim();
+    const sellPrice = S.prod.ars / S.prod.usdc;
+    setMsg('Colocando la orden PAY…');
+    const { orderId } = await rail().placePayOrder({
+      amountUsdc:S.prod.usdc, fiatAmount:S.prod.ars, currency:'ARS' });
+    S.orderId = orderId;
+    setMsg('Esperando que un merchant acepte…');
+    const o = await rail().pollOrder(orderId, { onTick:(x)=>setMsg('estado de la orden: ' + x.status) });
+    if(qr){
+      setMsg('Parseando el QR y entregando el destino cifrado…');
+      const parsed = await rail().parsePaymentQR({ qrData:qr, currency:'ARS', sellPrice });
+      const mpk = o.merchantPublicKey || o.acceptedMerchantPublicKey || o.merchantPubKey;
+      if(mpk){
+        await rail().setSellOrderUpi({ orderId, paymentAddress:parsed.paymentAddress,
+          merchantPublicKey:mpk, updatedAmount:S.prod.usdc });
+      } else {
+        info('la orden aceptada no expuso la clave pública del merchant; se omite setSellOrderUpi');
+      }
+    } else {
+      info('pegá el contenido del QR para completar el envío del destino cifrado');
+    }
+    setMsg('Esperando la acreditación en pesos…');
+    await rail().pollOrder(orderId, { onTick:(x)=>setMsg('estado de la orden: ' + x.status) });
+    go('cobrado');
+  }catch(e){ log('err', '→ ' + e.message); go('qr'); }
+}
+
+/* logger + estado del rail una vez que el módulo ESM cargó */
+window.addEventListener('p2prail:ready', () => {
+  const w = rail(); if(!w) return;
+  w.setLogger((kind, msg, badge) => log(kind, msg, badge));
+  if(!w.isWalletAvailable()){
+    setRailNote('warn', 'No se detecta una wallet en el navegador — el demo corre en modo simulación. ' +
+      'Instalá MetaMask, Rabby o Coinbase Wallet para ejecutar transacciones reales en Base mainnet.');
+    const b = $('#btnConnect'); if(b){ b.disabled = true; b.textContent = 'Sin wallet'; }
+  } else if(!w.isRailConfigured()){
+    setRailNote('', 'Wallet detectada. Faltan diamondAddress y subgraphUrl de P2P.me en p2p-rail.js ' +
+      'para habilitar el rail real; hasta entonces el demo va simulado.');
+  } else {
+    setRailNote('', 'Rail configurado. Conectá tu wallet para ejecutar la liquidación real sobre Base mainnet.');
+  }
+});
+
+const _btnC = $('#btnConnect');
+if(_btnC) _btnC.onclick = async () => {
+  const w = rail();
+  if(!w){ info('el módulo del rail aún no cargó'); return; }
+  _btnC.disabled = true; _btnC.textContent = 'Conectando…';
+  try{
+    const { address, configured } = await w.connect();
+    $('#walletbar').classList.add('on');
+    $('#waddr').textContent = w.short(address);
+    _btnC.textContent = 'Conectada';
+    const bal = await w.getBalance();
+    if(bal != null) $('#wbal').textContent = bal.toFixed(2) + ' USDC';
+    setRailNote(configured ? 'ok' : 'warn', configured
+      ? 'Wallet conectada en Base mainnet. La liquidación en pesos se ejecuta de verdad sobre el rail de P2P.me.'
+      : 'Wallet conectada, pero falta la config de P2P.me (diamond/subgraph): el demo sigue simulado.');
+    render();
+  }catch(e){
+    _btnC.disabled = false; _btnC.textContent = 'Conectar wallet';
+    log('err', '→ ' + e.message);
+  }
+};
 
 $('#reset').onclick = reset;
 info('demo lista — elegí un producto para empezar');
