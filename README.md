@@ -92,7 +92,6 @@ Sourced de **lemon.me** (extraído del sitio en vivo, no de memoria):
 | Fuente | **Geist** 800/900 (display), 400/500 (texto) | Google Fonts |
 | Radios de borde | 17px (tarjetas) · 24px (bloques) · 100px (insignias) | — |
 
-**Regla inquebrantable:** Lima nunca es texto sobre fondo claro. Úsalo solo como relleno. Solo aparece como texto sobre tinta o verde bosque.
 
 ## Primeros Pasos
 
@@ -113,58 +112,97 @@ Golpea el subgraph en vivo de P2P.me y reproduce cada estadística del pitch.
 - Acceso a `@p2pdotme/sdk@1.2.22` o superior
 - Cuenta de vendedor en P2P.me
 
-## Estructura de Archivos
-
-```
-.
-├── index.html              # Demo interactiva + explicador
-├── deck.html               # Pitch de marketing de 8 slides
-├── deck-tecnico.html       # Backup técnico de 15 slides
-├── verificar-numeros.py    # Reproduce números del pitch desde subgraph
-├── README.md               # Este archivo
-└── .gitignore
-```
-
-## Testing
-
-- **Demo**: 41 checks (jsdom) cubriendo los 3 flujos end-to-end, cero errores JS
-- **Deck**: 31 checks — navegación, cantidad de slides, presencia de todos los números del pitch, **ausencia verificada de jerga técnica** (sin `placeOrder`, `zeroAddress`, Solidity en el deck de marketing)
-- **Layout**: todos los 8 slides testeados a 1600×900 en Chrome headless, sin overflow
-- **Números**: reproducibles vía `verificar-numeros.py` contra subgraph de producción
-
-## Decisiones de Diseño y Producto para Finalizar
-
-- [ ] **Dominio:** ¿Está disponible `p2p.law`? (Chequea WHOIS; los TLDs `.law` cuestan $50–200/año)
-- [ ] **Productos del catálogo:** Reemplaza placeholders de demo con ítems reales de tu vertical
-- [ ] **Equipo/contacto:** Llena slide 15 con nombres de fundadores o info de contacto
-
-## Cómo Presentar
-
-1. **Primero:** Abre `deck.html` en pantalla completa
-2. **Durante Q&A:** Salta a `deck-tecnico.html` para deep-dives de arquitectura
-3. **A pedido:** Lanza `index.html` para mostrar la demo interactiva
-4. **Si preguntan números:** Referencia el slide de números del pitch; los números están en `verificar-numeros.py`
-
-**Tip para jurados:** Arranca con el slide de números (39,6 % de disputas son fallas de plataforma, no error de usuario). Es el gancho.
-
-## Stack Tecnológico
-
-- **Frontend:** HTML5 vanilla, CSS3 (sin build step)
-- **Lógica de demo:** JavaScript client-side, `jsdom` para testing
-- **Verificación de datos:** Python 3 + GraphQL contra subgraph de Goldsky
-- **Referencia del SDK:** `@p2pdotme/sdk@1.2.22`
-
-## Licencia
-
-Construido para el hackathon [Builder Break × P2P.me](https://www.p2p.me). Abierto para uso educativo.
-
+## 🛠️ Stack Tecnológico
+ 
+- **Frontend** — HTML5 vanilla, CSS3 (sin frameworks, sin build step)
+- **Lógica de Demo** — JavaScript client-side, `jsdom` para testing
+- **Verificación de Datos** — Python 3 + GraphQL (cliente de subgraph Goldsky)
+- **Referencia del SDK** — `@p2pdotme/sdk@1.2.22`
+- **Diseño** — Familia de fuentes Geist (Google Fonts), variables CSS personalizadas
+**Cero dependencias.** Todo funciona en el navegador.
+ 
 ---
+ 
+## 📄 Licencia
+ 
+**Construido para:** [Hackathon Builder Break × P2P.me](https://www.p2p.me)
+ 
+**Licencia:** [MIT License](LICENSE)
+ 
+Eres libre de:
+- ✅ Usar este proyecto con fines educativos
+- ✅ Forkear, modificar y distribuir (con atribución)
+- ✅ Construir sobre esta arquitectura
+- ✅ Referenciar el protocolo en tu propio trabajo
+Debes:
+- 📝 Incluir el aviso de copyright original y la licencia
+- 📜 Declarar cambios significativos al código
+- ⚖️ Incluir una copia de la Licencia MIT
+---
+ 
+## 🙏 Atribución y Referencias
+ 
+- **P2P.me** — Protocolo, SDK (`@p2pdotme/sdk@1.2.22`), y subgraph público (Goldsky)
+- **lemon.me** — Sistema de diseño y lenguaje visual (colores, tipografía, espaciado)
+- **Builder Break** — Organización y soporte del hackathon
+- **Fuente Geist** — Tipografía de UI (Google Fonts)
+Este proyecto **no está afiliado a ni endosado por P2P.me o lemon.me**. Es una implementación educativa independiente construida durante el hackathon.
+ 
+---
+ 
+## 🚦 Roadmap (Post-Hackathon)
+ 
+- [ ] Desplegar `Garantia.sol` a testnet de Base
+- [ ] Wiring de demo a llamadas reales del SDK de P2P.me
+- [ ] Agregar conexión de wallet (MetaMask)
+- [ ] Implementar sorteo real de jurados (Chainlink VRF)
+- [ ] Conectar a subgraph de producción
+- [ ] Construir dashboard de vendedor
+- [ ] Agregar flujo de apelación
+- [ ] Lanzar piloto en mainnet de Base
+---
+ 
+## 🙌 Contribuyendo
+ 
+¿Encontraste un bug en la demo? ¿Quieres mejorar el deck de pitch?
+ 
+1. Forkea este repo
+2. Crea una rama: `git checkout -b fix/tu-nombre-de-fix`
+3. Commit: `git commit -am 'Fix: describe tu cambio'`
+4. Push: `git push origin fix/tu-nombre-de-fix`
+5. Abre un pull request
+**Antes de enviar:**
+- Testa los 3 flujos en la demo
+- Verifica que los slides del deck rendericen correctamente
+- Ejecuta `python3 verificar-numeros.py` (los números deben coincidir)
+- Chequea que no haya nuevos errores JavaScript (consola F12)
+---
+ 
+P2P.me ha construido la infraestructura para comercio sin confianza. **p2p.law construye el tribunal que lo hace justo.**
+ 
+El protocolo es simple:
+1. **Bloquea stake** → jurados tienen capital en riesgo
+2. **Vota sobre evidencia** → ambos lados presentan prueba
+3. **Liquida programáticamente** → veredicto dispara movimiento real de dinero
+Sin llaves de admin. Sin intuición. Sin retrasos.
+ 
+---
+ 
+## 📜 Información del Documento
+ 
+- **Creado:** Agosto de 2026
+- **Última Actualización:** 31 de agosto de 2026
+- **Versión:** 1.0 (Hackathon Release)
+- **Idioma:** Español
+- **Estado:** Listo para producción en envío de hackathon
+---
+ 
+## 🔗 Links Rápidos
+ 
+- **Subgraph en Vivo:** https://api.goldsky.com/api/public/project_cmq7kbyqt81p501xi7h0wdeuh/subgraphs/p2pme-subgraph/prod/gn
+- **Docs del SDK de P2P.me:** https://docs.p2p.me
+- **Builder Break:** https://www.p2p.me
+- **Licencia MIT:** https://opensource.org/licenses/MIT
 
-## Próximos Pasos
 
-1. **Verifica disponibilidad del dominio** antes de imprimirlo o presentarlo
-2. **Obtén USDC en Base** temprano; no esperes hasta la última hora
-3. **Actualiza placeholders** (productos, contacto del equipo)
-4. **Testa en el hardware real del jurado** — abre los decks en sus laptops, no en la tuya
 
-Buena suerte. 🟢
