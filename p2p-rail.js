@@ -20,10 +20,13 @@
    son la capa conceptual de p2p.law; se simulan en index.html y están
    etiquetados como tales.
 
-   IMPORTANTE — completá CONFIG con los valores de producción de P2P.me:
-   diamondAddress y subgraphUrl los provee el equipo de P2P.me. Sin ellos
-   la app conecta la wallet y lee balances, pero las escrituras al rail
-   se deshabilitan y el demo cae a modo simulación.
+   CONFIG — valores de producción de P2P.me en Base mainnet, tomados del
+   networks.json oficial del subgraph (github.com/p2pdotme/subgraph, bloque
+   "base"). El Diamond EIP-2535 y el ReputationManager son reales y están
+   desplegados en Base mainnet. El subgraph público de P2P.me no expone un
+   endpoint compartido (cada operador despliega el suyo en The Graph Studio);
+   sin él, las lecturas de historial que dependen del indexer se degradan,
+   pero las escrituras on-chain contra el Diamond funcionan igual.
    ════════════════════════════════════════════════════════════════════ */
 
 import {
@@ -41,9 +44,14 @@ const CONFIG = {
   rpcUrl: 'https://mainnet.base.org',
   // USDC nativo en Base (Circle) — 6 decimales
   usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-  // ↓↓↓ COMPLETAR con los valores de producción de P2P.me en Base mainnet ↓↓↓
-  diamondAddress: '',                // p.ej. '0x…'  (Diamond EIP-2535 de P2P.me)
-  subgraphUrl: '',                   // endpoint del subgraph de P2P.me
+  // Diamond EIP-2535 de P2P.me en Base mainnet (networks.json → "base")
+  diamondAddress: '0x4cad6eC90e65baBec9335cAd728DDC610c316368',
+  // ReputationManager en Base mainnet (para lecturas de reputación / zkkyc)
+  reputationManagerAddress: '0xCF613e08EE1B4c2669DdCf06A7d22c9856f6Aa1D',
+  // Subgraph: cada operador despliega el suyo en The Graph Studio. Si el
+  // equipo te pasa el endpoint, pegalo acá; vacío = lecturas de historial
+  // degradadas, pero las escrituras on-chain siguen funcionando.
+  subgraphUrl: '',
 };
 
 const USDC_DECIMALS = 6;
@@ -78,7 +86,10 @@ function getEthereum() {
 
 /* ── config / disponibilidad ───────────────────────────────────────── */
 function isWalletAvailable() { return !!getEthereum(); }
-function isRailConfigured() { return !!(CONFIG.diamondAddress && CONFIG.subgraphUrl); }
+// Las escrituras on-chain (approve, placeOrder, dispute) solo necesitan el
+// Diamond. El subgraph es opcional y solo alimenta lecturas de historial.
+function isRailConfigured() { return !!CONFIG.diamondAddress; }
+function hasSubgraph() { return !!CONFIG.subgraphUrl; }
 function getAccount() { return account; }
 
 function buildClients() {
@@ -89,8 +100,12 @@ function buildClients() {
       publicClient,
       diamondAddress: getAddress(CONFIG.diamondAddress),
       usdcAddress: getAddress(CONFIG.usdcAddress),
-      subgraphUrl: CONFIG.subgraphUrl,
     };
+    if (CONFIG.reputationManagerAddress) {
+      cfg.reputationManagerAddress = getAddress(CONFIG.reputationManagerAddress);
+    }
+    // subgraphUrl es opcional: solo lo pasamos si el operador lo configuró.
+    if (hasSubgraph()) cfg.subgraphUrl = CONFIG.subgraphUrl;
     orders = createOrders(cfg);
     profile = createProfile({
       publicClient,
@@ -137,7 +152,9 @@ async function connect() {
   buildClients();
   log('ok', '→ wallet conectada · ' + short(account) + ' · Base mainnet');
   if (!isRailConfigured()) {
-    log('err', '→ CONFIG incompleto: falta diamondAddress / subgraphUrl de P2P.me — escrituras del rail deshabilitadas');
+    log('err', '→ CONFIG incompleto: falta diamondAddress de P2P.me — escrituras del rail deshabilitadas');
+  } else if (!hasSubgraph()) {
+    log('sdk', '→ subgraph no configurado: escrituras on-chain activas; historial/routing degradados', 'RAIL');
   }
   return { address: account, configured: isRailConfigured() };
 }
