@@ -1,0 +1,12 @@
+p2p.law — demo interactiva + deck para Builder Break × P2P.me
+
+Entregables autocontenidos, sin backend ni contratos desplegados:
+- index.html      demo de los 3 flujos (comprador, jurado, reembolso) + descripción técnica
+- deck.html       8 slides de presentación
+- deck-tecnico.html  la versión larga de 15, de respaldo
+- verificar-numeros.py  reproduce los números del pitch contra el subgraph público
+
+Sistema visual tomado de lemon.me (medido, no de memoria).
+Verificado: 41 checks en la demo, 31 en el deck, 0 slides desbordados.
+
+Claude-Session: https://claude.ai/code/session_01Rr5EWUVS7LpVE9yFFx9pfU
